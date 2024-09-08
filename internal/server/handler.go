@@ -53,8 +53,60 @@ type Message struct {
 	Timestamp time.Time `json:"timestamp"`
 }
 
+// Add a read-write mutex for channel safety
+var channelsMu sync.RWMutex
+
 // Upgrader specifies the parameters for upgrading an HTTP connection to a WebSocket connection.
 var upgrader = websocket.Upgrader{}
+
+func joinChannel(conn *Connection, channelName string) {
+	// Lock channels for reading
+	channelsMu.RLock()
+	var targetChannel *Channel
+	for i := range channels {
+		if channels[i].name == channelName {
+			targetChannel = &channels[i]
+			break
+		}
+	}
+	channelsMu.RUnlock()
+
+	if targetChannel == nil {
+		// Channel not found
+		logger.Error(fmt.Sprintf("Channel %s not found", channelName), nil)
+		return
+	}
+
+	// Lock the current channel before removing the connection
+	if conn.channel != nil {
+		conn.channel.mu.Lock()
+		// Remove the connection from the current channel
+		for i, connection := range conn.channel.connectedUsers {
+			if connection.conn == conn.conn {
+				conn.channel.connectedUsers = append(conn.channel.connectedUsers[:i], conn.channel.connectedUsers[i+1:]...)
+				break
+			}
+		}
+		conn.channel.mu.Unlock()
+	}
+
+	// keep reference to the current channel
+	previousChannel := conn.channel
+
+	// Update the connection's channel reference
+	conn.channel = targetChannel
+
+	// Lock the new channel before adding the connection
+	conn.channel.mu.Lock()
+	conn.channel.connectedUsers = append(conn.channel.connectedUsers, conn)
+	conn.channel.mu.Unlock()
+
+	logger.Info(fmt.Sprintf("User %s left channel: %s", conn.user, previousChannel.name))
+	logger.Info(fmt.Sprintf("User %s joined channel: %s", conn.user, conn.channel.name))
+
+	LogChannelUsers(previousChannel)
+	LogChannelUsers(conn.channel)
+}
 
 // HandleConnections upgrades HTTP requests to WebSocket connections and manages communication
 func HandleConnections(w http.ResponseWriter, r *http.Request) {
@@ -71,37 +123,28 @@ func HandleConnections(w http.ResponseWriter, r *http.Request) {
 	defer conn.Close()
 
 	// create a new connection with channel as general
-	newConnection := Connection{
+	currentConnection := Connection{
 		conn: conn,
 		user: uuid.NewString(),
 	}
 
-	// create a new connection with channel as reference to general channel
-	newConnection.channel = &channels[0]
-
-	// Add the new connection to the channel safely
-	newConnection.channel.mu.Lock()
-	newConnection.channel.connectedUsers = append(newConnection.channel.connectedUsers, &newConnection)
-	newConnection.channel.mu.Unlock()
-
-	logger.Info(fmt.Sprintf("User %s joined channel: %s", newConnection.user, newConnection.channel.name))
-
-	LogChannelUsers(newConnection.channel)
+	// By default, join the general channel
+	joinChannel(&currentConnection, "general")
 
 	// Defer the removal of the connection after the user disconnects
 	defer func() {
 		// Remove the connection from the channel safely
-		newConnection.channel.mu.Lock()
-		for i, connection := range newConnection.channel.connectedUsers {
-			if connection.conn == newConnection.conn {
-				newConnection.channel.connectedUsers = append(newConnection.channel.connectedUsers[:i], newConnection.channel.connectedUsers[i+1:]...)
+		currentConnection.channel.mu.Lock()
+		for i, connection := range currentConnection.channel.connectedUsers {
+			if connection.conn == currentConnection.conn {
+				currentConnection.channel.connectedUsers = append(currentConnection.channel.connectedUsers[:i], currentConnection.channel.connectedUsers[i+1:]...)
 				break
 			}
 		}
-		newConnection.channel.mu.Unlock()
+		currentConnection.channel.mu.Unlock()
 
-		logger.Info(fmt.Sprintf("User %s left channel: %s", newConnection.user, newConnection.channel.name))
-		LogChannelUsers(newConnection.channel)
+		logger.Info(fmt.Sprintf("User %s left channel: %s", currentConnection.user, currentConnection.channel.name))
+		LogChannelUsers(currentConnection.channel)
 	}()
 
 	// Handle incoming messages from the WebSocket connection
@@ -127,7 +170,7 @@ func HandleConnections(w http.ResponseWriter, r *http.Request) {
 		}
 
 		msg.Timestamp = time.Now()
-		msg.UserID = newConnection.user
+		msg.UserID = currentConnection.user
 
 		// set message type to message if it is not present
 		if msg.Type == "" {
@@ -136,27 +179,34 @@ func HandleConnections(w http.ResponseWriter, r *http.Request) {
 
 		if msg.Type == "changeChannel" {
 			logger.Info(fmt.Sprintf("Received changeChannel request from user %s: %s", msg.UserID, msg.Content))
+
+			joinChannel(&currentConnection, msg.Content)
 		}
 
-		// Broadcast message to all connected users in the channel
-		currentChannel := newConnection.channel
+		if msg.Type == "message" {
+			// Broadcast message to all connected users in the channel
+			currentChannel := currentConnection.channel
 
-		go func() {
-			currentChannel.mu.Lock()
-			logger.Info(fmt.Sprintf("Sending message to channel: %s | "+msg.Timestamp.Format(time.RFC3339)+" "+msg.UserID+": "+msg.Content, currentChannel.name))
-			for _, connection := range currentChannel.connectedUsers {
-				err = connection.conn.WriteMessage(websocket.TextMessage, []byte(msg.Timestamp.Format(time.RFC3339)+" "+msg.UserID+": "+msg.Content))
-				if err != nil {
-					logger.Error("Failed to write message to the WebSocket connection: ", err)
-					return
+			go func() {
+				currentChannel.mu.Lock()
+				logger.Info(fmt.Sprintf("Sending message to channel: %s | "+msg.Timestamp.Format(time.RFC3339)+" "+msg.UserID+": "+msg.Content, currentChannel.name))
+				for _, connection := range currentChannel.connectedUsers {
+					err = connection.conn.WriteMessage(websocket.TextMessage, []byte(msg.Timestamp.Format(time.RFC3339)+" "+msg.UserID+": "+msg.Content))
+					if err != nil {
+						logger.Error("Failed to write message to the WebSocket connection: ", err)
+						return
+					}
 				}
-			}
-			currentChannel.mu.Unlock()
-		}()
+				currentChannel.mu.Unlock()
+			}()
+		}
 	}
 }
 
 func LogChannelUsers(channel *Channel) {
+	if channel == nil {
+		return
+	}
 	logger.Info(fmt.Sprintf("Channel: %s | Connected Users: %d", channel.name, len(channel.connectedUsers)))
 
 	// Use a slice to collect the users' IDs
