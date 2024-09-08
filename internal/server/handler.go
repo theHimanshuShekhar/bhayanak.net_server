@@ -56,29 +56,6 @@ type Message struct {
 // Upgrader specifies the parameters for upgrading an HTTP connection to a WebSocket connection.
 var upgrader = websocket.Upgrader{}
 
-func LogChannelUsers(channel *Channel) {
-	logger.Info(fmt.Sprintf("Channel: %s | Connected Users: %d", channel.name, len(channel.connectedUsers)))
-
-	// Use a slice to collect the users' IDs
-	var users []string
-	// Lock the channel before accessing the users if necessary
-	channel.mu.Lock()
-	for _, connection := range channel.connectedUsers {
-		users = append(users, "["+connection.user+"]")
-	}
-	channel.mu.Unlock()
-	// Join the users into a single string with space as a separator
-	logger.Info(joinUsers(users))
-}
-
-// Helper function to join users into a string
-func joinUsers(users []string) string {
-	if len(users) == 0 {
-		return "No users connected."
-	}
-	return "Users: " + strings.Join(users, " ")
-}
-
 // HandleConnections upgrades HTTP requests to WebSocket connections and manages communication
 func HandleConnections(w http.ResponseWriter, r *http.Request) {
 
@@ -177,4 +154,27 @@ func HandleConnections(w http.ResponseWriter, r *http.Request) {
 			currentChannel.mu.Unlock()
 		}()
 	}
+}
+
+func LogChannelUsers(channel *Channel) {
+	logger.Info(fmt.Sprintf("Channel: %s | Connected Users: %d", channel.name, len(channel.connectedUsers)))
+
+	// Use a slice to collect the users' IDs
+	var users []string
+	// Lock the channel before accessing the users if necessary
+	channel.mu.Lock()
+	for _, connection := range channel.connectedUsers {
+		users = append(users, "["+connection.user+"]")
+	}
+	channel.mu.Unlock()
+	// Join the users into a single string with space as a separator
+	logger.Info(joinUsers(users))
+}
+
+// Helper function to join users into a string
+func joinUsers(users []string) string {
+	if len(users) == 0 {
+		return "No users connected."
+	}
+	return "Users: " + strings.Join(users, " ")
 }
