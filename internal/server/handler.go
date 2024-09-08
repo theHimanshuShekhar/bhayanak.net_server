@@ -118,6 +118,7 @@ func HandleConnections(w http.ResponseWriter, r *http.Request) {
 	conn, err := upgrader.Upgrade(w, r, nil)
 	if err != nil {
 		logger.Error("Failed to upgrade to a WebSocket connection: ", err)
+		w.Write([]byte("Failed to upgrade to a WebSocket connection. Please check your client.\nError: " + err.Error()))
 		return
 	}
 	defer conn.Close()
@@ -179,7 +180,6 @@ func HandleConnections(w http.ResponseWriter, r *http.Request) {
 
 		if msg.Type == "changeChannel" {
 			logger.Info(fmt.Sprintf("Received changeChannel request from user %s: %s", msg.UserID, msg.Content))
-
 			joinChannel(&currentConnection, msg.Content)
 		}
 
