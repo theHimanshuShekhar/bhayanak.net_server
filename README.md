@@ -1,6 +1,6 @@
-# BChat Backend Server
+# Bhayanak.net Backend Server
 
-BChat is an IRC-like chat application that supports anonymous communication in different global chatrooms. The backend server is built using **WebSockets** and provides the real-time messaging infrastructure for both the terminal-based and web-based clients. Users can join chatrooms, exchange messages, and enjoy a seamless, low-latency chat experience.
+Bhayanak.net is an IRC-like chat application that supports anonymous communication in different global chatrooms. The backend server is built using **WebSockets** and provides the real-time messaging infrastructure for both the terminal-based and web-based clients. Users can join chatrooms, exchange messages, and enjoy a seamless, low-latency chat experience.
 
 ## Features
 
