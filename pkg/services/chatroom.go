@@ -6,9 +6,9 @@ import (
 	"time"
 
 	"github.com/gorilla/websocket"
-	"github.com/theHimanshuShekhar/bchat-server/pkg/logger"
-	"github.com/theHimanshuShekhar/bchat-server/pkg/models"
-	"github.com/theHimanshuShekhar/bchat-server/pkg/utils"
+	"github.com/theHimanshuShekhar/bhayanak.net/pkg/logger"
+	"github.com/theHimanshuShekhar/bhayanak.net/pkg/models"
+	"github.com/theHimanshuShekhar/bhayanak.net/pkg/utils"
 )
 
 // List of all the channels

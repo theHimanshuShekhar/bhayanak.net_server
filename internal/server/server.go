@@ -4,8 +4,8 @@ import (
 	"log"
 	"net/http"
 
-	"github.com/theHimanshuShekhar/bchat-server/internal/config"
-	"github.com/theHimanshuShekhar/bchat-server/pkg/logger"
+	"github.com/theHimanshuShekhar/bhayanak.net/internal/config"
+	"github.com/theHimanshuShekhar/bhayanak.net/pkg/logger"
 )
 
 // Start initializes and starts the HTTP server

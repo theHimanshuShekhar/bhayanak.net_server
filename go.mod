@@ -1,4 +1,4 @@
-module github.com/theHimanshuShekhar/bchat-server
+module github.com/theHimanshuShekhar/bhayanak.net
 
 go 1.22.6
 

@@ -1,7 +1,7 @@
 package main
 
 import (
-	"github.com/theHimanshuShekhar/bchat-server/internal/server"
+	"github.com/theHimanshuShekhar/bhayanak.net/internal/server"
 )
 
 func main() {

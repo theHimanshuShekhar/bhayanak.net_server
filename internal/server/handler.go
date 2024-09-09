@@ -7,9 +7,9 @@ import (
 
 	"github.com/google/uuid"
 	"github.com/gorilla/websocket"
-	"github.com/theHimanshuShekhar/bchat-server/pkg/logger"
-	"github.com/theHimanshuShekhar/bchat-server/pkg/models"
-	"github.com/theHimanshuShekhar/bchat-server/pkg/services"
+	"github.com/theHimanshuShekhar/bhayanak.net/pkg/logger"
+	"github.com/theHimanshuShekhar/bhayanak.net/pkg/models"
+	"github.com/theHimanshuShekhar/bhayanak.net/pkg/services"
 )
 
 // Upgrader specifies the parameters for upgrading an HTTP connection to a WebSocket connection.

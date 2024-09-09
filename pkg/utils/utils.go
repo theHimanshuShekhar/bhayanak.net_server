@@ -4,8 +4,8 @@ import (
 	"fmt"
 	"strings"
 
-	"github.com/theHimanshuShekhar/bchat-server/pkg/logger"
-	"github.com/theHimanshuShekhar/bchat-server/pkg/models"
+	"github.com/theHimanshuShekhar/bhayanak.net/pkg/logger"
+	"github.com/theHimanshuShekhar/bhayanak.net/pkg/models"
 )
 
 func LogChannelUsers(channel *models.ChatRoom) {
