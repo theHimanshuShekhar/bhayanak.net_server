@@ -1,7 +1,7 @@
 package services
 
+// Initialize postgres database
 func init() {
-
 }
 
 // Todo: Implement database functions
