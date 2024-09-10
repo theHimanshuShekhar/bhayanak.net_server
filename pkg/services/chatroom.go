@@ -11,8 +11,8 @@ import (
 	"github.com/theHimanshuShekhar/bhayanak.net/pkg/utils"
 )
 
-// List of all the channels
-var channels []models.ChatRoom = []models.ChatRoom{
+// List of all the chatrooms
+var chatrooms []models.ChatRoom = []models.ChatRoom{
 	{
 		Name:           "general",
 		ConnectedUsers: []*models.Connection{},
@@ -27,54 +27,54 @@ var channels []models.ChatRoom = []models.ChatRoom{
 	},
 }
 
-// Add a read-write mutex for channel safety
-var channelsMu sync.RWMutex
+// Add a read-write mutex for chatroom safety
+var chatRoomsMu sync.RWMutex
 
-func JoinChatRoom(conn *models.Connection, channelName string) {
-	// Lock channels for reading
-	channelsMu.RLock()
-	var targetChannel *models.ChatRoom
-	for i := range channels {
-		if channels[i].Name == channelName {
-			targetChannel = &channels[i]
+func JoinChatRoom(conn *models.Connection, chatRoomName string) {
+	// Lock chatrooms for reading
+	chatRoomsMu.RLock()
+	var targetChatRoom *models.ChatRoom
+	for i := range chatrooms {
+		if chatrooms[i].Name == chatRoomName {
+			targetChatRoom = &chatrooms[i]
 			break
 		}
 	}
-	channelsMu.RUnlock()
+	chatRoomsMu.RUnlock()
 
-	if targetChannel == nil {
-		// Channel not found
-		logger.Error(fmt.Sprintf("Channel %s not found", channelName), nil)
+	if targetChatRoom == nil {
+		// Chatroom not found
+		logger.Error(fmt.Sprintf("Chatroom %s not found", chatRoomName), nil)
 		return
 	}
 
-	// Leave the current channel if it exists
+	// Leave the current chatroom if it exists
 	if conn.ChatRoom != nil {
 		LeaveChatRoom(conn)
 	}
 
-	// Update the connection's channel reference
-	conn.ChatRoom = targetChannel
+	// Update the connection's chatroom reference
+	conn.ChatRoom = targetChatRoom
 
-	// Lock the new channel before adding the connection
+	// Lock the new chatroom before adding the connection
 	conn.ChatRoom.Mu.Lock()
 	conn.ChatRoom.ConnectedUsers = append(conn.ChatRoom.ConnectedUsers, conn)
 	conn.ChatRoom.Mu.Unlock()
 
-	logger.Info(fmt.Sprintf("User %s joined channel: %s", conn.User, conn.ChatRoom.Name))
+	logger.Info(fmt.Sprintf("User %s joined chatroom: %s", conn.User, conn.ChatRoom.Name))
 
-	utils.LogChannelUsers(conn.ChatRoom)
+	utils.LogChatRoomUsers(conn.ChatRoom)
 }
 
 func LeaveChatRoom(conn *models.Connection) {
-	// Lock the current channel before removing the connection
+	// Lock the current chatroom before removing the connection
 	if conn.ChatRoom != nil {
 		conn.ChatRoom.Mu.Lock()
 
-		// keep reference to the current channel
-		previousChannel := conn.ChatRoom
+		// keep reference to the current chatroom
+		previousChatRoom := conn.ChatRoom
 
-		// Remove the connection from the current channel
+		// Remove the connection from the current chatroom
 		for i, connection := range conn.ChatRoom.ConnectedUsers {
 			if connection.Conn == conn.Conn {
 				conn.ChatRoom.ConnectedUsers = append(conn.ChatRoom.ConnectedUsers[:i], conn.ChatRoom.ConnectedUsers[i+1:]...)
@@ -82,12 +82,12 @@ func LeaveChatRoom(conn *models.Connection) {
 			}
 		}
 
-		logger.Info(fmt.Sprintf("User %s left channel: %s", conn.User, previousChannel.Name))
+		logger.Info(fmt.Sprintf("User %s left chatroom: %s", conn.User, previousChatRoom.Name))
 		conn.ChatRoom.Mu.Unlock()
 		conn.ChatRoom = nil
 
-		// Log the updated users in the channel
-		utils.LogChannelUsers(previousChannel)
+		// Log the updated users in the chatroom
+		utils.LogChatRoomUsers(previousChatRoom)
 	}
 }
 
@@ -100,26 +100,26 @@ func BroadcastMessage(currentConnection *models.Connection, msg models.Message) 
 		msg.Type = "message"
 	}
 
-	if msg.Type == "changeChannel" {
-		logger.Info(fmt.Sprintf("Received changeChannel request from user %s: %s", msg.UserID, msg.Content))
+	if msg.Type == "changeChatRoom" {
+		logger.Info(fmt.Sprintf("Received changeChatRoom request from user %s: %s", msg.UserID, msg.Content))
 		JoinChatRoom(currentConnection, msg.Content)
 	}
 
 	if msg.Type == "message" {
-		// Broadcast message to all connected users in the channel
-		currentChannel := currentConnection.ChatRoom
+		// Broadcast message to all connected users in the chatroom
+		currentChatRoom := currentConnection.ChatRoom
 
 		go func() {
-			currentChannel.Mu.Lock()
-			logger.Info(fmt.Sprintf("Sending message to channel: %s | "+msg.Timestamp.Format(time.RFC3339)+" "+msg.UserID+": "+msg.Content, currentChannel.Name))
-			for _, connection := range currentChannel.ConnectedUsers {
+			currentChatRoom.Mu.Lock()
+			logger.Info(fmt.Sprintf("Sending message to chatroom: %s | "+msg.Timestamp.Format(time.RFC3339)+" "+msg.UserID+": "+msg.Content, currentChatRoom.Name))
+			for _, connection := range currentChatRoom.ConnectedUsers {
 				err := connection.Conn.WriteMessage(websocket.TextMessage, []byte(msg.Timestamp.Format(time.RFC3339)+" "+msg.UserID+": "+msg.Content))
 				if err != nil {
 					logger.Error("Failed to write message to the WebSocket connection: ", err)
 					return
 				}
 			}
-			currentChannel.Mu.Unlock()
+			currentChatRoom.Mu.Unlock()
 		}()
 	}
 }
